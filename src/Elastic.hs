@@ -1,8 +1,13 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+{-
+   This module contains the conversion function from Bank Query Language to Bloodhound ES Query DSL.
+ -}
+
 module Elastic
   ( queryES
+  , bqlToElastic
   ) where
 
 import Database.Bloodhound
@@ -16,18 +21,9 @@ import BQL
   , Operator(..)
   )
 
-getRangeFilter :: Operator -> Double -> RangeValue
-getRangeFilter QLessThan value = RangeDoubleLt (LessThan value)
-getRangeFilter QGreaterThan value = RangeDoubleGt (GreaterThan value)
-getRangeFilter QLessThanEqual value = RangeDoubleLte (LessThanEq value)
-getRangeFilter QGreaterThanEqual value = RangeDoubleGte (GreaterThanEq value)
-getRangeFilter QEqual _ = error "Range with equal should not be possible"
-
-
-bqlToElastic :: BQL -> (Maybe Query, Maybe Filter)
-bqlToElastic (QBalance op balance) = (Nothing, Just $ RangeFilter (FieldName "balance") (getRangeFilter op balance) RangeExecutionIndex False)
-bqlToElastic (QGender gender) = (Just $ QueryMatchQuery $ mkMatchQuery (FieldName "gender") (QueryString (pack . show $ gender)), Nothing)
-
+--------------------------------
+-- Basic Config for ES Server --
+--------------------------------
 
 esServer :: Server
 esServer =
@@ -41,10 +37,34 @@ withBH' :: BH IO a -> IO a
 withBH' =
   withBH defaultManagerSettings esServer
 
+----------------
+-- Conversion --
+----------------
+
+getRangeValue :: Operator -> Double -> RangeValue
+getRangeValue QLessThan value = RangeDoubleLt (LessThan value)
+getRangeValue QGreaterThan value = RangeDoubleGt (GreaterThan value)
+getRangeValue QLessThanEqual value = RangeDoubleLte (LessThanEq value)
+getRangeValue QGreaterThanEqual value = RangeDoubleGte (GreaterThanEq value)
+getRangeValue QEqual _ = error "Range with equal should not be possible"
+
+
+bqlToElastic :: BQL -> Query
+bqlToElastic (QAge op age) =
+  QueryRangeQuery $ mkRangeQuery (FieldName "age") (getRangeValue op (fromInteger age))
+bqlToElastic (QBalance op balance) =
+  QueryRangeQuery $ mkRangeQuery (FieldName "balance") (getRangeValue op balance)
+bqlToElastic (QGender gender) =
+  QueryMatchQuery $ mkMatchQuery (FieldName "gender") (QueryString (pack . show $ gender))
+
+---------------
+-- Executing --
+---------------
+
 queryES :: BQL -> IO String
 queryES bankQuery = do
-  let (searchQ, filterQ) = bqlToElastic bankQuery
-  let query = mkSearch searchQ filterQ
+  let searchQ = bqlToElastic bankQuery
+  let query = mkSearch (Just searchQ) Nothing
   reply <- withBH' $ searchByIndex bankIndex query
   return . unpack $ responseBody reply
 

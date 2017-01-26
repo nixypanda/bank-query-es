@@ -1,9 +1,14 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+{-
+   This module defines the Bank Query Language (Lexer and Parser).
+ -}
+
 module BQL
   ( BQL(..)
   , Operator(..)
+  , Gender(..)
   , parseBQL
   ) where
 
@@ -18,6 +23,7 @@ import Text.Parsec
   , alphaNum
   , char
   , letter
+  , try
   )
 
 import qualified Text.Parsec.Token as Token
@@ -52,20 +58,22 @@ data Operator =
   | QLessThanEqual
   | QGreaterThanEqual
   | QEqual
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Gender =
     Male
   | Female
+  deriving (Eq)
 
 instance Show Gender where
   show Male = "M"
   show Female = "F"
 
 data BQL =
-    QBalance Operator Double
+    QAge Operator Integer
+  | QBalance Operator Double
   | QGender Gender
-  deriving (Show)
+  deriving (Show, Eq)
 
 ---------------------------------------------------------------------------------------------------
 -- LEXICAL ANALYSIS -------------------------------------------------------------------------------
@@ -111,6 +119,10 @@ reservedOp = Token.reservedOp lexer
 double :: Parser Double
 double = Token.float lexer
 
+-- parses an integer
+integer :: Parser Integer
+integer = Token.integer lexer
+
 ---------------------------------------------------------------------------------------------------
 -- PARSING ----------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------
@@ -129,7 +141,10 @@ gender =
   <|> (char 'F' *> pure Female)
 
 balance :: Parser BQL
-balance = QBalance <$> (reserved "balance" *> operator) <*> double
+balance = QBalance <$> (reserved "balance" *> operator) <*> (try double <|> fmap fromInteger integer)
+
+age :: Parser BQL
+age = QAge <$> (reserved "age" *> operator) <*> integer
 
 gender' :: Parser BQL
 gender' = QGender <$> (reserved "gender" *> reservedOp ":" *> gender)
@@ -138,6 +153,7 @@ bql :: Parser BQL
 bql =
       balance
   <|> gender'
+  <|> age
 
 parseBQL :: String -> Either ParseError BQL
 parseBQL input = parse bql "" input
