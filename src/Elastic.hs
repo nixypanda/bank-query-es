@@ -21,9 +21,9 @@ import BQL
   , Operator(..)
   )
 
---------------------------------
--- Basic Config for ES Server --
---------------------------------
+---------------------------------------------------------------------------------------------------
+-- Basic Config for ES Server ---------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
 esServer :: Server
 esServer =
@@ -37,9 +37,9 @@ withBH' :: BH IO a -> IO a
 withBH' =
   withBH defaultManagerSettings esServer
 
-----------------
--- Conversion --
-----------------
+----------------------------------------------------------------------------------------------------
+-- Conversion (BQL -> ELASTIC) ---------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 
 getRangeValue :: Operator -> Double -> RangeValue
 getRangeValue QLessThan value = RangeDoubleLt (LessThan value)
@@ -48,18 +48,24 @@ getRangeValue QLessThanEqual value = RangeDoubleLte (LessThanEq value)
 getRangeValue QGreaterThanEqual value = RangeDoubleGte (GreaterThanEq value)
 getRangeValue QEqual _ = error "Range with equal should not be possible"
 
-
 bqlToElastic :: BQL -> Query
-bqlToElastic (QAge op age) =
-  QueryRangeQuery $ mkRangeQuery (FieldName "age") (getRangeValue op (fromInteger age))
-bqlToElastic (QBalance op balance) =
-  QueryRangeQuery $ mkRangeQuery (FieldName "balance") (getRangeValue op balance)
+bqlToElastic (QAge op age)
+  | op == QEqual = QueryMatchQuery $ mkMatchQuery (FieldName "age") (QueryString (pack . show $ age))
+  | otherwise = QueryRangeQuery $ mkRangeQuery (FieldName "age") (getRangeValue op (fromInteger age))
+bqlToElastic (QBalance op balance)
+  | op == QEqual = QueryMatchQuery $ mkMatchQuery (FieldName "balance") (QueryString (pack . show $ balance))
+  | otherwise = QueryRangeQuery $ mkRangeQuery (FieldName "balance") (getRangeValue op balance)
 bqlToElastic (QGender gender) =
   QueryMatchQuery $ mkMatchQuery (FieldName "gender") (QueryString (pack . show $ gender))
+bqlToElastic (QAnd qs) =
+  QueryBoolQuery $ mkBoolQuery (map bqlToElastic qs) [] []
+bqlToElastic (QOr qs) =
+  QueryBoolQuery $ mkBoolQuery [] [] (map bqlToElastic qs)
 
----------------
--- Executing --
----------------
+
+---------------------------------------------------------------------------------------------------
+-- Executing --------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
 queryES :: BQL -> IO String
 queryES bankQuery = do

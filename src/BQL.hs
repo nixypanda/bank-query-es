@@ -23,6 +23,7 @@ import Text.Parsec
   , alphaNum
   , char
   , letter
+  , sepBy1
   , try
   )
 
@@ -73,6 +74,8 @@ data BQL =
     QAge Operator Integer
   | QBalance Operator Double
   | QGender Gender
+  | QAnd [BQL]
+  | QOr [BQL]
   deriving (Show, Eq)
 
 ---------------------------------------------------------------------------------------------------
@@ -91,6 +94,9 @@ kqlDef =
     , identLetter    = alphaNum
     , reservedNames  =
       [ "balance"
+      , "age"
+      , "and"
+      , "or"
       ]
     , reservedOpNames =
       [ ":"
@@ -123,6 +129,11 @@ double = Token.float lexer
 integer :: Parser Integer
 integer = Token.integer lexer
 
+-- parses surrounding parenthesis: parens p takes care of the parenthesis and
+-- uses p to parse what's inside them
+parens :: Parser a -> Parser a
+parens = Token.parens lexer
+
 ---------------------------------------------------------------------------------------------------
 -- PARSING ----------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------
@@ -133,7 +144,7 @@ operator =
   <|> (reservedOp "<"  *> pure QLessThan)
   <|> (reservedOp "<=" *> pure QLessThanEqual)
   <|> (reservedOp ">=" *> pure QGreaterThanEqual)
-  <|> (reservedOp ":"  *> pure QEqual)
+  <|> (reservedOp "="  *> pure QEqual)
 
 gender :: Parser Gender
 gender =
@@ -147,14 +158,47 @@ age :: Parser BQL
 age = QAge <$> (reserved "age" *> operator) <*> integer
 
 gender' :: Parser BQL
-gender' = QGender <$> (reserved "gender" *> reservedOp ":" *> gender)
+gender' = QGender <$> (reserved "gender" *> reservedOp "=" *> gender)
+
+andQ :: Parser BQL
+andQ =
+  let
+    bql' = parens' <|> balance <|> gender' <|> age
+  in
+    QAnd <$> sepBy1 bql' (reserved "and")
+
+orQ :: Parser BQL
+orQ =
+  let
+    bql' = andQ <|> parens' <|> balance <|> gender' <|> age
+  in
+    QOr <$> sepBy1 bql' (reserved "or")
+
+parens' :: Parser BQL
+parens' = parens bql
 
 bql :: Parser BQL
 bql =
-      balance
+      orQ
+  <|> andQ
+  <|> parens'
+  <|> balance
   <|> gender'
   <|> age
 
+---------------------------------------------------------------------------------------------------
+-- OPTIMIZING -------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
+
+optimizeBQL :: BQL -> BQL
+optimizeBQL (QOr [query]) = optimizeBQL query
+optimizeBQL (QAnd [query]) = optimizeBQL query
+optimizeBQL query = query
+
+---------------------------------------------------------------------------------------------------
+-- OPTIMIZED AND PARSED OUTPUT --------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
+
 parseBQL :: String -> Either ParseError BQL
-parseBQL input = parse bql "" input
+parseBQL = fmap optimizeBQL . parse bql ""
 
