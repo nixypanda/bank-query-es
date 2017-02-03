@@ -9,9 +9,13 @@ module Lib
   ) where
 
 import Servant
+import Data.Aeson (Value, decode)
+import Data.ByteString.Lazy.Char8 (pack)
+import Data.Maybe (fromJust)
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.IO.Class (liftIO)
 
+-- import qualified Data.Map as M
 import qualified Data.Proxy as Proxy
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Handler.Warp as Warp
@@ -24,18 +28,18 @@ import Elastic (queryES)
    Describing a REST API using a type. Get on this api returns a story.
  -}
 type SearchAPI =
-  "search" :> QueryParam "query" String :> Get '[JSON] String
+  "search" :> QueryParam "query" String :> Get '[JSON] Value
 
 
 {-
    The part where we describe how we actually serve the api.
  -}
-serverSearch :: Maybe String -> ExceptT ServantErr IO String
-serverSearch Nothing = return "No Query provided"
+serverSearch :: Maybe String -> ExceptT ServantErr IO Value
+serverSearch Nothing = return . fromJust $ decode "No query Provided"
 serverSearch (Just queryStr) =
   case parseBQL queryStr of
-    Left err -> return . show $ err
-    Right bqlStr -> liftIO $ queryES bqlStr
+    Left err -> return . fromJust . decode . pack . show $ err
+    Right bqlStr -> liftIO . fmap (fromJust . decode) $ queryES bqlStr
 
 {-
    No Idea WTF is this

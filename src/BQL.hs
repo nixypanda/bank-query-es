@@ -178,13 +178,7 @@ parens' :: Parser BQL
 parens' = parens bql
 
 bql :: Parser BQL
-bql =
-      orQ
-  <|> andQ
-  <|> parens'
-  <|> balance
-  <|> gender'
-  <|> age
+bql = orQ
 
 ---------------------------------------------------------------------------------------------------
 -- OPTIMIZING -------------------------------------------------------------------------------------
@@ -193,6 +187,8 @@ bql =
 optimizeBQL :: BQL -> BQL
 optimizeBQL (QOr [query]) = optimizeBQL query
 optimizeBQL (QAnd [query]) = optimizeBQL query
+optimizeBQL (QOr ors) = QOr (map optimizeBQL ors)
+optimizeBQL (QAnd ands) = QAnd (map optimizeBQL ands)
 optimizeBQL query = query
 
 ---------------------------------------------------------------------------------------------------

@@ -10,11 +10,10 @@ module Elastic
   , bqlToElastic
   ) where
 
+import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.Text (pack)
 import Database.Bloodhound
 import Network.HTTP.Client
-
-import Data.ByteString.Lazy.Char8 (unpack)
-import Data.Text (pack)
 
 import BQL
   ( BQL(..)
@@ -67,10 +66,10 @@ bqlToElastic (QOr qs) =
 -- Executing --------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------
 
-queryES :: BQL -> IO String
+queryES :: BQL -> IO ByteString
 queryES bankQuery = do
   let searchQ = bqlToElastic bankQuery
   let query = mkSearch (Just searchQ) Nothing
   reply <- withBH' $ searchByIndex bankIndex query
-  return . unpack $ responseBody reply
+  return $ responseBody reply
 

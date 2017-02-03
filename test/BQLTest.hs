@@ -49,6 +49,11 @@ mixedInOut =
   , ("", "", "(age=24 or age=25) and gender=F", Right $ QAnd [QOr [QAge QEqual 24, QAge QEqual 25], QGender Female])
   ]
 
+pathologicalInputs :: [TestDefinition]
+pathologicalInputs =
+  [ ("", "", "", Right $ QAnd [])
+  ]
+
 bqlTests :: [Test]
 bqlTests =
   let
@@ -63,6 +68,7 @@ bqlTests =
         , genderInOut
         , balanceInOut
         , mixedInOut
+        , pathologicalInputs
         ]
   in
     map apply testList
