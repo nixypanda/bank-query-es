@@ -10,6 +10,10 @@ import Test.HUnit
 import Text.Parsec (ParseError)
 
 import BQL
+  ( BQL(..)
+  , Operator(..)
+  , parseBQL
+  )
 
 
 type TestDescription = String
@@ -19,39 +23,33 @@ type TestDefinition  = (TestDescription, FailureMessage, TestInputData, Either P
 
 
 -- Input Output data to test if the age parser works
-ageInOut :: [TestDefinition]
-ageInOut =
-  [ ("Age =  test", "Cannot handle  =", "age= 24",    Right $ QAge QEqual 24)
-  , ("Age >= test", "Cannot handle >=", "age>=34",    Right $ QAge QGreaterThanEqual 34)
-  , ("Age <= test", "Cannot handle <=", "age   <=98", Right $ QAge QLessThanEqual 98)
-  , ("Age <  test", "Cannot handle  <", "age<   7",   Right $ QAge QLessThan 7)
-  ]
-
--- Input Output data to test if the gender parser works
-genderInOut :: [TestDefinition]
-genderInOut =
-  [ ("Gender Basic Test",      "Cannot do basic conversion", "gender=M",       Right $ QGender Male  )
-  , ("Gender Test Whitespace", "Cannot handle whitespace",   "gender   =   F", Right $ QGender Female)
-  ]
-
--- Input Output data to test if the gender parser works
-balanceInOut :: [TestDefinition]
-balanceInOut =
-  [ ("Balance =  test Double",  "Cannot handle  = or doubles", "balance= 24.00", Right $ QBalance QEqual 24)
-  , ("Balance >= test Double",  "Cannot handle >= or doubles", "balance>=34.00", Right $ QBalance QGreaterThanEqual 34)
-  , ("Balance <= test Integer", "Cannot handle <= or integer", "balance   <=98", Right $ QBalance QLessThanEqual 98)
-  , ("Balance <  test Integer", "Cannot handle  < or integer", "balance<   7",   Right $ QBalance QLessThan 7)
-  ]
-
-mixedInOut :: [TestDefinition]
-mixedInOut =
-  [ ("", "", "balance>40000 and gender=F",      Right $ QAnd [QBalance QGreaterThan 40000, QGender Female])
-  , ("", "", "(age=24 or age=25) and gender=F", Right $ QAnd [QOr [QAge QEqual 24, QAge QEqual 25], QGender Female])
-  ]
-
-pathologicalInputs :: [TestDefinition]
-pathologicalInputs =
-  [ ("", "", "", Right $ QAnd [])
+allInOut :: [TestDefinition]
+allInOut =
+  [ ( "age = test 1"
+    , "Cannot handle = (no space)"
+    , "age:24"
+    , Right $ B_Num "age" B_Equal 24
+    )
+  , ( "age = test 2"
+    , "Cannot handle = (space)"
+    , "age :34"
+    , Right $ B_Num "age" B_Equal 34
+    )
+  , ( "age = test 3"
+    , "Cannot handle = (space)"
+    , "age   : 98"
+    , Right $ B_Num "age" B_Equal 98
+    )
+  , ( "Gender : test"
+    , "Can't handle  :"
+    , "gender: F"
+    , Right $ B_String "gender" "F"
+    )
+  , ( "Gender : \" test"
+    , "Can't handle \""
+    , "gender:M"
+    , Right $ B_String "gender" "M"
+    )
   ]
 
 bqlTests :: [Test]
@@ -60,16 +58,9 @@ bqlTests =
     apply :: TestDefinition -> Test
     apply (label, failuresMsg, input, expectation) =
       TestLabel label $ TestCase $ assertEqual failuresMsg expectation (parseBQL input)
-    
+
     testList :: [TestDefinition]
-    testList =
-      concat
-        [ ageInOut
-        , genderInOut
-        , balanceInOut
-        , mixedInOut
-        , pathologicalInputs
-        ]
+    testList = allInOut
   in
     map apply testList
 

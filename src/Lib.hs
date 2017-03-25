@@ -1,67 +1,47 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Lib
   ( startServer
   ) where
 
-import Servant
-import Data.Aeson (Value, decode)
-import Data.ByteString.Lazy.Char8 (pack)
-import Data.Maybe (fromJust)
-import Control.Monad.Trans.Except (ExceptT)
-import Control.Monad.IO.Class (liftIO)
+import Web.Scotty
 
--- import qualified Data.Map as M
-import qualified Data.Proxy as Proxy
-import qualified Network.Wai as Wai
-import qualified Network.Wai.Handler.Warp as Warp
-import qualified Network.Wai.Middleware.Cors as WaiCors
+import Data.Aeson (Value(..), object, (.=))
+import Data.Text (pack)
+import Network.HTTP.Types.Status (status500)
+import Network.Wai.Middleware.RequestLogger
 
 import BQL (parseBQL)
 import Elastic (queryES)
 
-{-
-   Describing a REST API using a type. Get on this api returns a story.
- -}
-type SearchAPI =
-  "search" :> QueryParam "query" String :> Get '[JSON] Value
+
+app :: ScottyM ()
+app = do
+  middleware logStdoutDev
+
+  defaultHandler $ \e -> do
+    liftAndCatchIO $ print e
+    status status500
+    json $ object ["error" .= String "Something went wrong"]
+
+  get "/" $
+    html "<h1>Elastic Search Bank Query Application</h1>"
+
+  get "/search" $ do
+    query <- param "query" `rescue` const next
+    case parseBQL query of
+      Left err -> json $ object ["error" .= String (pack $ show err)]
+      Right bqlStr -> do
+        queryResult <- liftAndCatchIO $ queryES bqlStr
+        json $ object ["results" .= queryResult]
+
+  notFound . json $ object ["error" .= String "Not Found"]
 
 
-{-
-   The part where we describe how we actually serve the api.
- -}
-serverSearch :: Maybe String -> ExceptT ServantErr IO Value
-serverSearch Nothing = return . fromJust $ decode "No query Provided"
-serverSearch (Just queryStr) =
-  case parseBQL queryStr of
-    Left err -> return . fromJust . decode . pack . show $ err
-    Right bqlStr -> liftIO . fmap (fromJust . decode) $ queryES bqlStr
-
-{-
-   No Idea WTF is this
- -}
-storyAPI :: Proxy.Proxy SearchAPI
-storyAPI =
-  Proxy.Proxy
-
-{-
-   'serve' comes from servant and hands you a WAI Application,
-   which you can think of as an "abstract" web application,
-   not yet a webserver.
- -}
-app1 :: Wai.Application
-app1 =
-  serve storyAPI serverSearch
-
-{-
-   The main entry point for our application. It starts our web application on
-   port 8081 (and uses warp behind the scene to do so.)
- -}
 startServer :: IO ()
-startServer =
-  Warp.run 8081 (WaiCors.simpleCors app1)
-
+startServer = scotty 8081 app

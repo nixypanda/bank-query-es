@@ -1,16 +1,16 @@
 name:                app-search
 version:             0.1.0.0
-synopsis:            Initial project template from stack
+synopsis:            Elastic Search Bank Query Language
 description:         Please see README.md
-homepage:            https://github.com/githubuser/app-search#readme
+homepage:            https://github.com/jckdrpr/bank-query-es#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2016 Author name here
+author:              Sherub Thakur
+maintainer:          sherub.thakur@gmail.com
+copyright:           2016 Sherub Thakur
 category:            Web
 build-type:          Simple
-extra-source-files:  README.md
+extra-source-files:  Readme.md
 cabal-version:       >=1.10
 
 library
@@ -21,6 +21,7 @@ library
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , bytestring
+                     , containers
                      , either
                      , parsec
                      , time
@@ -28,11 +29,11 @@ library
                      , text
                      , http-client
                      , http-types
-                     , servant
-                     , servant-server
+                     , scotty
                      , transformers
                      , wai
                      , wai-cors
+                     , wai-extra
                      , warp
   default-language:    Haskell2010
 
@@ -60,4 +61,4 @@ test-suite app-search-test
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/app-search
+  location: https://github.com/jckdrpr/bank-query-es

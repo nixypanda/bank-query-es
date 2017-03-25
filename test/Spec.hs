@@ -1,11 +1,10 @@
 import Test.HUnit
 
 import BQLTest (bqlTests)
-import ElasticTest (elasticTests)
 
 allTests :: Test
 allTests =
-  TestList $ bqlTests ++ elasticTests
+  TestList $ bqlTests
 
 main :: IO Counts
 main =

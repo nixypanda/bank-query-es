@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUid OverloadedStrings #-}
 
 module ElasticTest
   ( elasticTests
@@ -8,17 +8,17 @@ module ElasticTest
 import Test.HUnit
 import Database.Bloodhound
 
-import BQL
 import Elastic
+import KQL
 
 type TestDescription = String
-type FailureMessage  = String
-type TestDefinition  = (TestDescription, FailureMessage, BQL, Query)
+type FailureMessid  = String
+type TestDefinition  = (TestDescription, FailureMessid, KQL, Query)
 
 
-ageInOut :: [TestDefinition]
-ageInOut =
-  [ ("Converts Age", "Cannot hande age<90", QAge QLessThan 90, QueryRangeQuery $ RangeQuery (FieldName "age") (RangeDoubleLt $ LessThan 90) (Boost 1.0))
+idInOut :: [TestDefinition]
+idInOut =
+  [
   ]
 
 elasticTests :: [Test]
@@ -26,12 +26,12 @@ elasticTests =
   let
     apply :: TestDefinition -> Test
     apply (label, failuresMsg, input, expectation) =
-      TestLabel label $ TestCase $ assertEqual failuresMsg expectation (bqlToElastic input)
+      TestLabel label $ TestCase $ assertEqual failuresMsg expectation (kqlToElastic input)
 
     testList :: [TestDefinition]
     testList =
       concat
-        [ ageInOut
+        [ idInOut
         ]
   in
     map apply testList
