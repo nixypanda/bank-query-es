@@ -20,3 +20,27 @@ understanding of haskell the code base could be painful to read but hopefully th
 - `query=(balance%20%20>48000)%20and%20age<=24%20and%20gender:F`
 - `query=(balance%20%20<48000)%20or%20age<=24%20and%20gender:F`
 - and so on
+
+## Note
+- Config is being handled in the most naive way (Need to look into how to stack monads)
+- See `src/Utils.hs` to see what can be configured
+
+## Config
+|Env Var|Desc|Default|
+|:-----:|:--:|:-----:|
+SCOTTY_PORT|port|8081|
+ES_USERNAME|elasticsearch username|-|
+ES_PASSWORD|elasticsearch password|-|
+ES_URL|elasticsearch url|localhost|
+ES_PORT|elasticsearch port|9200|-|
+ES_INDEX|elasticsearch index|bank|
+KEY_MAP*|key mapping file path|-|
+FILTER_MAP*|filter mapping file path|-|
+
+`*` - multiline files seperated with spaces (txt)
+e.g. filters.txt
+```
+c ct
+nam user org
+addr address
+```

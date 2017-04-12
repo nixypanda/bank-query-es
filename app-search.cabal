@@ -18,6 +18,8 @@ library
   exposed-modules:     Lib
                      , BQL
                      , Elastic
+                     , Types
+                     , Utils
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , bytestring
@@ -26,10 +28,11 @@ library
                      , parsec
                      , time
                      , bloodhound
-                     , text
                      , http-client
                      , http-types
+                     , mtl
                      , scotty
+                     , text
                      , transformers
                      , wai
                      , wai-cors
@@ -53,6 +56,7 @@ test-suite app-search-test
   main-is:             Spec.hs
   build-depends:       base
                      , app-search
+                     , containers
                      , HUnit
                      , parsec
                      , bloodhound

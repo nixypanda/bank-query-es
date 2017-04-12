@@ -10,34 +10,19 @@ module Elastic
   , bqlToElastic
   ) where
 
+-- import Control.Monad.Trans.Reader (Reader, asks)
 import Data.Aeson (Value, eitherDecode)
 import Data.Either.Combinators (fromRight')
-import Data.Maybe (fromMaybe, fromJust)
+import Data.Maybe (fromJust)
 import Data.Time.Clock (UTCTime)
+-- import Data.Text (Text)
+
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Database.Bloodhound
 import Network.HTTP.Client
 
-import BQL
-  ( BQL(..)
-  , Operator(..)
-  )
-
----------------------------------------------------------------------------------------------------
--- Basic Config for ES Server ---------------------------------------------------------------------
----------------------------------------------------------------------------------------------------
-
-esServer :: Server
-esServer =
-  Server "http://localhost:9200"
-
-bankIndex :: IndexName
-bankIndex =
-  IndexName "bank"
-
-withBH' :: BH IO a -> IO a
-withBH' =
-  withBH defaultManagerSettings esServer
+-- import Types (Config(withBH', index))
+import BQL (BQL(..), Operator(..))
 
 ----------------------------------------------------------------------------------------------------
 -- Conversion (IQL -> ELASTIC) ---------------------------------------------------------------------
@@ -79,8 +64,26 @@ bqlToElastic (B_In _) =
 -- Executing --------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------
 
-queryES' :: BQL -> IO ByteString
-queryES' bankQuery =
+-- queryES' :: BQL -> Reader (Config Reply) (IO ByteString)
+-- queryES' bankQuery = do
+--   bankIndex <- asks index
+--   withBH'' <- asks withBH'
+--
+--   let
+--     searchQ = bqlToElastic bankQuery
+--     filterQ = Nothing
+--     query = mkSearch (Just searchQ) filterQ
+--
+--   return $ fmap responseBody (withBH'' $ searchByIndex bankIndex query)
+--
+--
+-- queryES :: BQL -> Reader (Config Reply) (IO [Value])
+-- queryES bql = do
+--   res <- queryES' bql
+--   return $ fmap (fromRight' . fmap (fromJust . mapM hitSource . hits . searchHits) . eitherDecode) $ res
+
+queryES' :: (BH IO Reply -> IO Reply) -> IndexName -> BQL -> IO ByteString
+queryES' withBH' bankIndex bankQuery =
   let
     searchQ = bqlToElastic bankQuery
     filterQ = Nothing
@@ -89,7 +92,6 @@ queryES' bankQuery =
     fmap responseBody (withBH' $ searchByIndex bankIndex query)
 
 
-queryES :: BQL -> IO [Value]
-queryES =
-  fmap (fromRight' . fmap (fromJust . mapM hitSource . hits . searchHits) . eitherDecode) . queryES'
-
+queryES :: (BH IO Reply -> IO Reply) -> IndexName -> BQL -> IO [Value]
+queryES withBH' bankIndex =
+  fmap (fromRight' . fmap (fromJust . mapM hitSource . hits . searchHits) . eitherDecode) . queryES' withBH' bankIndex

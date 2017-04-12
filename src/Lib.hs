@@ -9,19 +9,30 @@ module Lib
   ( startServer
   ) where
 
-import Web.Scotty
+import Control.Monad.Trans (liftIO)
+import Data.Text (Text, pack)
+import Data.Map (Map)
 
 import Data.Aeson (Value(..), object, (.=))
-import Data.Text (pack)
+import Database.Bloodhound (BH, IndexName(..), Reply)
+import Web.Scotty
+
 import Network.HTTP.Types.Status (status500)
 import Network.Wai.Middleware.RequestLogger
 
 import BQL (parseBQL)
 import Elastic (queryES)
+import Utils (readEnv)
+import Types
 
 
-app :: ScottyM ()
-app = do
+indexRoute :: ActionM ()
+indexRoute =
+  html "<h1>Elastic Search Bank Query Application</h1>"
+
+
+app :: Map Text [Text] -> Map Text [Text] -> (BH IO Reply -> IO Reply) -> IndexName -> ScottyM ()
+app kMap' fMap' withBH bankIndex = do
   middleware logStdoutDev
 
   defaultHandler $ \e -> do
@@ -29,19 +40,21 @@ app = do
     status status500
     json $ object ["error" .= String "Something went wrong"]
 
-  get "/" $
-    html "<h1>Elastic Search Bank Query Application</h1>"
+  get "/"
+    indexRoute
 
   get "/search" $ do
     query <- param "query" `rescue` const next
-    case parseBQL query of
+    case parseBQL kMap' fMap' query of
       Left err -> json $ object ["error" .= String (pack $ show err)]
       Right bqlStr -> do
-        queryResult <- liftAndCatchIO $ queryES bqlStr
+        queryResult <- liftIO $ queryES withBH bankIndex bqlStr
         json $ object ["results" .= queryResult]
 
   notFound . json $ object ["error" .= String "Not Found"]
 
 
 startServer :: IO ()
-startServer = scotty 8081 app
+startServer = do
+  config <- readEnv
+  scotty (port config) (app (kMap config) (fMap config) (withBH' config) (index config))

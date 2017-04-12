@@ -1,0 +1,32 @@
+version: '2'
+
+services:
+  bank-query-es:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    environment:
+      ES_USERNAME: elastic
+      ES_PASSWORD: changeme
+      ES_URL: elasticsearch
+
+    ports:
+      - 8081:8081
+
+    image:
+      bank-query
+
+    links:
+      - elasticsearch
+
+
+  elasticsearch:
+    image:
+      sherubthakur/elasticsearch-preloaded-bank-data
+
+    environment:
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+
+    ports:
+      - 9200:9200

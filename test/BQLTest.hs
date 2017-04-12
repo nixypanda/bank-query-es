@@ -5,8 +5,9 @@ module BQLTest
   ( bqlTests
   ) where
 
-import Test.HUnit
+import qualified Data.Map as M
 
+import Test.HUnit
 import Text.Parsec (ParseError)
 
 import BQL
@@ -52,12 +53,15 @@ allInOut =
     )
   ]
 
+parseBQL' :: String -> Either ParseError BQL
+parseBQL' = parseBQL M.empty M.empty
+
 bqlTests :: [Test]
 bqlTests =
   let
     apply :: TestDefinition -> Test
     apply (label, failuresMsg, input, expectation) =
-      TestLabel label $ TestCase $ assertEqual failuresMsg expectation (parseBQL input)
+      TestLabel label $ TestCase $ assertEqual failuresMsg expectation (parseBQL' input)
 
     testList :: [TestDefinition]
     testList = allInOut

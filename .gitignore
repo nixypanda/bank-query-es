@@ -16,3 +16,8 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 .HTF/
+
+accounts.json
+env_vars.sh
+filters.txt
+keys.txt

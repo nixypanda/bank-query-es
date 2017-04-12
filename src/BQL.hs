@@ -222,37 +222,26 @@ kql = orQ
 -- EXPANDING --------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------
 
-filterMappings :: M.Map Text [Text]
-filterMappings =
-  M.fromList
-    []
+getKeys :: M.Map Text [Text] -> Text -> [Text]
+getKeys kMap key =
+  fromMaybe [key] (M.lookup key kMap)
 
--- If you ever need to map single user key to multiple keys on ES
-keyMappings :: M.Map Text [Text]
-keyMappings =
-  M.fromList
-    []
+getFilters :: M.Map Text [Text] -> Text -> [Text]
+getFilters fMap key =
+  fromMaybe [key] (M.lookup key fMap)
 
-getKeys :: Text -> [Text]
-getKeys key =
-  fromMaybe [key] (M.lookup key keyMappings)
-
-getFilters :: Text -> [Text]
-getFilters key =
-  fromMaybe [key] (M.lookup key filterMappings)
-
-expand :: BQL -> BQL
-expand (B_String field value) =
-  case getKeys field of
+expand :: M.Map Text [Text] -> M.Map Text [Text] -> BQL -> BQL
+expand kMap _    (B_Num k op v) = B_Or (fmap (\x -> B_Num x op v) (getKeys kMap k))
+expand kMap _    (B_Date k op v) = B_Or (fmap (\x -> B_Date x op v) (getKeys kMap k))
+expand _    fMap (B_In v) = B_Or (fmap (B_String "object") (getFilters fMap v))
+expand kMap fMap (B_Not q) = B_Not (expand kMap fMap q)
+expand kMap fMap (B_And xs) = B_And (map (expand kMap fMap) xs)
+expand kMap fMap (B_Or xs) = B_Or (map (expand kMap fMap) xs)
+expand _    _    (B_MultiString _ _) = error "expand should never get B_MultiString query"
+expand kMap _    (B_String field value) =
+  case getKeys kMap field of
     [field'] -> B_String field' value
     fields -> B_MultiString fields value
-expand (B_Num k op v) = B_Or (fmap (\x -> B_Num x op v) (getKeys k))
-expand (B_Date k op v) = B_Or (fmap (\x -> B_Date x op v) (getKeys k))
-expand (B_In v) = B_Or (fmap (B_String "object") (getFilters v))
-expand (B_Not q) = B_Not (expand q)
-expand (B_And xs) = B_And (map expand xs)
-expand (B_Or xs) = B_Or (map expand xs)
-expand (B_MultiString _ _) = error "expand should never get B_MultiString query"
 
 ---------------------------------------------------------------------------------------------------
 -- OPTIMIZING -------------------------------------------------------------------------------------
@@ -270,6 +259,7 @@ optimizebql query = query
 -- OPTIMIZED AND PARSED OUTPUT --------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------
 
-parseBQL :: String -> Either ParseError BQL
-parseBQL = fmap (optimizebql . expand) . parse kql ""
+parseBQL :: M.Map Text [Text] -> M.Map Text [Text] -> String -> Either ParseError BQL
+parseBQL kMap fMap =
+  fmap (optimizebql . expand kMap fMap) . parse kql ""
 
